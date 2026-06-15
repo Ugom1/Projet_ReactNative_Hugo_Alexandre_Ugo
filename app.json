@@ -1,16 +1,18 @@
 {
   "expo": {
-    "name": "dream-team-maker",
-    "slug": "dream-team-maker",
+    "name": "DTM",
+    "slug": "dtm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dreamteammaker",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.projetreactnative.dtm"
     },
     "android": {
+      "package": "com.projetreactnative.dtm",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -31,7 +33,7 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#0B1F14"
+          "backgroundColor": "#0A0A0A"
         }
       ],
       [
@@ -41,6 +43,18 @@
         }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "5d10d9f0-fc28-44c6-828c-92a2b41dc3e1"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5d10d9f0-fc28-44c6-828c-92a2b41dc3e1"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "projetreactnative",
     "experiments": {
       "typedRoutes": true
     }

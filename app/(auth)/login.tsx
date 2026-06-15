@@ -1,26 +1,113 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Text } from 'react-native';
-import { Card, GradientButton, Input, Label, Screen, Title } from '@/components/ui';
-import { login, useGoogleLogin } from '@/services/authService';
+import { Keyboard, StyleSheet, Text, View } from 'react-native';
+import {
+  Card,
+  ErrorText,
+  FormScreen,
+  GradientButton,
+  Input,
+  Label,
+  Subtitle,
+} from '@/components/ui';
+import { theme } from '@/constants/theme';
+import { getFirebaseSetupMessage, isFirebaseConfigured } from '@/lib/firebase-config';
+import { loginSchema } from '@/lib/schemas';
+import { login } from '@/services/authService';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { loginWithGoogle } = useGoogleLogin();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const firebaseReady = isFirebaseConfigured();
+
+  const handleLogin = async () => {
+    Keyboard.dismiss();
+    setFormError('');
+
+    if (!firebaseReady) {
+      setFormError(getFirebaseSetupMessage());
+      return;
+    }
+    const parsed = loginSchema.safeParse({ email: email.trim(), password });
+    if (!parsed.success) {
+      const next: Record<string, string> = {};
+      parsed.error.issues.forEach((i) => {
+        if (i.path[0]) next[String(i.path[0])] = i.message;
+      });
+      setErrors(next);
+      return;
+    }
+
+    setErrors({});
+    setLoading(true);
+    try {
+      await login(email, password);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Connexion impossible');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <Screen>
-      <Text style={{ color: '#FFD700', fontWeight: '900' }}>DTM</Text>
-      <Title>Entrez dans l'elite du jeu</Title>
+    <FormScreen>
+      <View style={styles.brand}>
+        <Text style={styles.logo}>DTM</Text>
+        <Subtitle>ENTREZ DANS L'ÉLITE DU JEU</Subtitle>
+      </View>
+
       <Card>
-        <Label>Email</Label><Input value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-        <Label>Mot de passe</Label><Input value={password} onChangeText={setPassword} secureTextEntry />
-        <GradientButton title="Se connecter" onPress={async () => { try { await login(email, password); } catch (e) { Alert.alert('Erreur', String(e)); } }} />
-        <GradientButton title="Continuer avec Google" onPress={async () => { try { await loginWithGoogle(); } catch (e) { Alert.alert('Erreur', String(e)); } }} />
+        <Label>Email</Label>
+        <Input
+          icon="mail-outline"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="votre@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          error={errors.email}
+          returnKeyType="next"
+        />
+        <View style={styles.row}>
+          <Label>Mot de passe</Label>
+          <Link href="/(auth)/forgot-password" style={styles.link}>
+            Mot de passe oublié ?
+          </Link>
+        </View>
+        <Input
+          icon="lock-closed-outline"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          secureTextEntry
+          error={errors.password}
+          returnKeyType="done"
+          onSubmitEditing={handleLogin}
+        />
+        <ErrorText>{formError}</ErrorText>
+        <GradientButton title={loading ? 'CONNEXION...' : 'SE CONNECTER'} onPress={handleLogin} disabled={loading} />
       </Card>
-      <Link href="/(auth)/forgot-password" style={{ color: '#FFD700' }}>Mot de passe oublie ?</Link>
-      <Link href="/(auth)/signup" style={{ color: '#FF6B00' }}>Creer mon compte</Link>
-    </Screen>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Pas encore de compte ? </Text>
+        <Link href="/(auth)/signup" style={styles.linkBold}>
+          Créer mon compte
+        </Link>
+      </View>
+    </FormScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  brand: { alignItems: 'center', gap: 8, marginBottom: 8 },
+  logo: { fontSize: 36, fontWeight: '900', color: theme.gold, letterSpacing: 3 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  link: { color: theme.gold, fontSize: 12, fontWeight: '600' },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
+  footerText: { color: theme.muted },
+  linkBold: { color: theme.gold, fontWeight: '800' },
+});

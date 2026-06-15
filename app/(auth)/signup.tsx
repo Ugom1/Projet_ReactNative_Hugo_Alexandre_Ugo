@@ -1,75 +1,113 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Text } from 'react-native';
-import { Card, GradientButton, Input, Label, Screen, Title } from '@/components/ui';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Card,
+  ErrorText,
+  FormScreen,
+  GradientButton,
+  Input,
+  Label,
+  Subtitle,
+  Title,
+} from '@/components/ui';
 import { theme } from '@/constants/theme';
+import { signupSchema } from '@/lib/schemas';
 import { register } from '@/services/authService';
-
-function getSignupErrorMessage(error: unknown) {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
-  if (code.includes('email-already-in-use')) return 'Cet email est deja utilise.';
-  if (code.includes('invalid-email')) return 'Adresse email invalide.';
-  if (code.includes('weak-password')) return 'Le mot de passe doit contenir au moins 6 caracteres.';
-  if (code.includes('permission-denied')) {
-    return "Compte cree, mais l'ecriture Firestore est refusee. Deploie les regles Firestore puis reconnecte-toi.";
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return "Une erreur est survenue pendant l'inscription.";
-}
 
 export default function SignupScreen() {
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleSignup = async () => {
-    const cleanPseudo = pseudo.trim();
-    const cleanEmail = email.trim();
-    setMessage('');
-
-    if (!cleanPseudo || !cleanEmail || !password || !confirm) {
-      setMessage('Remplis tous les champs.');
+    const parsed = signupSchema.safeParse({ pseudo, email, password, confirmPassword, acceptTerms });
+    if (!parsed.success) {
+      const next: Record<string, string> = {};
+      parsed.error.issues.forEach((i) => {
+        if (i.path[0]) next[String(i.path[0])] = i.message;
+      });
+      setErrors(next);
       return;
     }
-    if (password !== confirm) {
-      setMessage('Les mots de passe ne correspondent pas.');
-      return;
-    }
-    if (password.length < 6) {
-      setMessage('Le mot de passe doit contenir au moins 6 caracteres.');
-      return;
-    }
-
+    setErrors({});
     setLoading(true);
+    setMessage('');
     try {
-      await register(cleanEmail, password, cleanPseudo);
-      setMessage('Compte cree. Redirection en cours...');
+      await register(email, password, pseudo, confirmPassword, acceptTerms);
+      setMessage('Compte créé. Redirection en cours...');
     } catch (e) {
-      setMessage(getSignupErrorMessage(e));
+      setMessage(e instanceof Error ? e.message : 'Erreur lors de la création du compte');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Screen>
-      <Title>Rejoignez l'elite</Title>
+    <FormScreen>
+      <Text style={styles.logo}>DTM</Text>
+      <Title>Rejoignez l'élite</Title>
+      <Subtitle>Commencez votre collection de cartes numériques rares dès aujourd'hui.</Subtitle>
+
       <Card>
-        <Label>Pseudo</Label><Input value={pseudo} onChangeText={setPseudo} />
-        <Label>Email</Label><Input value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <Label>Mot de passe</Label><Input value={password} onChangeText={setPassword} secureTextEntry />
-        <Label>Confirmer</Label><Input value={confirm} onChangeText={setConfirm} secureTextEntry />
-        <GradientButton title={loading ? 'Creation...' : 'Creer mon compte'} onPress={handleSignup} disabled={loading} />
-        {message ? (
-          <Text style={{ color: message.startsWith('Compte cree') ? theme.success : theme.danger, fontWeight: '600' }}>
-            {message}
+        <Label>Pseudo</Label>
+        <Input icon="person-outline" value={pseudo} onChangeText={setPseudo} placeholder="Entrez votre pseudo" error={errors.pseudo} />
+        <Label>Email</Label>
+        <Input icon="mail-outline" value={email} onChangeText={setEmail} placeholder="votre@email.com" autoCapitalize="none" keyboardType="email-address" error={errors.email} />
+        <Label>Mot de passe</Label>
+        <Input icon="lock-closed-outline" value={password} onChangeText={setPassword} secureTextEntry error={errors.password} />
+        <Label>Confirmer mot de passe</Label>
+        <Input icon="lock-closed-outline" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry error={errors.confirmPassword} />
+
+        <Pressable style={styles.checkRow} onPress={() => setAcceptTerms((v) => !v)}>
+          <View style={[styles.checkbox, acceptTerms && styles.checkboxOn]}>
+            {acceptTerms ? <Text style={styles.checkMark}>✓</Text> : null}
+          </View>
+          <Text style={styles.checkText}>
+            J'accepte les <Text style={styles.link}>Conditions d'utilisation</Text> et la{' '}
+            <Text style={styles.link}>Politique de confidentialité</Text>.
           </Text>
+        </Pressable>
+        <ErrorText>{errors.acceptTerms}</ErrorText>
+
+        <GradientButton title={loading ? 'CRÉATION...' : 'Créer mon compte'} onPress={handleSignup} disabled={loading} />
+        {message ? (
+          <Text style={{ color: message.includes('créé') ? theme.success : theme.danger, fontWeight: '600' }}>{message}</Text>
         ) : null}
       </Card>
-      <Link href="/(auth)/login" style={{ color: '#FFD700' }}>Se connecter</Link>
-    </Screen>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Vous avez déjà un compte ? </Text>
+        <Link href="/(auth)/login" style={styles.link}>
+          Se connecter
+        </Link>
+      </View>
+    </FormScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  logo: { fontSize: 28, fontWeight: '900', color: theme.gold, letterSpacing: 2, textAlign: 'center' },
+  checkRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxOn: { backgroundColor: theme.gold, borderColor: theme.gold },
+  checkMark: { color: '#1A1A1A', fontWeight: '900', fontSize: 12 },
+  checkText: { flex: 1, color: theme.muted, fontSize: 13, lineHeight: 18 },
+  link: { color: theme.gold, fontWeight: '700' },
+  footer: { flexDirection: 'row', justifyContent: 'center' },
+  footerText: { color: theme.muted },
+});

@@ -1,22 +1,43 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { firebaseConfig, getFirebaseSetupMessage, isFirebaseConfigured } from '@/lib/firebase-config';
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyA5QPoSdish6oxQCdQxUldLj7D0wumXpLs',
-  authDomain: 'dreamteammaker-2298e.firebaseapp.com',
-  databaseURL: 'https://dreamteammaker-2298e-default-rtdb.europe-west1.firebasedatabase.app',
-  projectId: 'dreamteammaker-2298e',
-  storageBucket: 'dreamteammaker-2298e.firebasestorage.app',
-  messagingSenderId: '539543969622',
-  appId: '1:539543969622:web:4edc2259ae0752e54e40f7',
-  measurementId: 'G-V8FSQF6H9X',
-};
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let firestore: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+function getApp(): FirebaseApp {
+  if (!isFirebaseConfigured()) {
+    throw new Error(getFirebaseSetupMessage());
+  }
+  if (!app) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  }
+  return app;
+}
 
-export const firebaseAuth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export { app };
+export function getFirebaseAuth(): Auth {
+  if (!auth) {
+    auth = getAuth(getApp());
+  }
+  return auth;
+}
+
+export function getDb(): Firestore {
+  if (!firestore) {
+    firestore = getFirestore(getApp());
+  }
+  return firestore;
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  if (!storage) {
+    storage = getStorage(getApp());
+  }
+  return storage;
+}
+
+export { isFirebaseConfigured, getFirebaseSetupMessage };

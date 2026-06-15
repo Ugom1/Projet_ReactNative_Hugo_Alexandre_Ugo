@@ -1,72 +1,55 @@
 import { z } from 'zod';
-import { FORMATIONS } from './constants';
 
 export const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
+  email: z.string().email('Adresse email invalide'),
   password: z.string().min(6, 'Minimum 6 caractères'),
 });
 
-export const signupSchema = loginSchema.extend({
-  displayName: z.string().min(2, 'Nom trop court').max(40),
+export const signupSchema = z
+  .object({
+    pseudo: z.string().min(2, 'Pseudo trop court').max(30, 'Pseudo trop long'),
+    email: z.string().email('Adresse email invalide'),
+    password: z.string().min(6, 'Minimum 6 caractères'),
+    confirmPassword: z.string(),
+    acceptTerms: z.literal(true, { message: 'Vous devez accepter les conditions' }),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirmPassword'],
+  });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Adresse email invalide'),
 });
 
-export const profileSchema = z.object({
-  displayName: z.string().min(2).max(40),
+export const profileUpdateSchema = z.object({
+  pseudo: z.string().min(2, 'Pseudo trop court').max(30, 'Pseudo trop long'),
 });
-
-export const teamSchema = z.object({
-  name: z.string().min(2, 'Nom requis').max(30),
-  formation: z.enum(FORMATIONS),
-  leagueId: z.number(),
-});
-
-export const playerSlotSchema = z.object({
-  apiPlayerId: z.number(),
-  name: z.string(),
-  position: z.string(),
-  rating: z.number(),
-  photo: z.string().optional(),
-  slotId: z.string(),
-  price: z.number(),
-});
-
-export const dreamTeamSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  name: z.string(),
-  formation: z.enum(FORMATIONS),
-  leagueId: z.number(),
-  leagueName: z.string().optional(),
-  players: z.array(playerSlotSchema),
-  createdAt: z.any().optional(),
-  updatedAt: z.any().optional(),
-});
-
-export type LoginInput = z.infer<typeof loginSchema>;
-export type SignupInput = z.infer<typeof signupSchema>;
-export type DreamTeam = z.infer<typeof dreamTeamSchema>;
-export type PlayerSlot = z.infer<typeof playerSlotSchema>;
 
 export const userProfileSchema = z.object({
   uid: z.string(),
   email: z.string(),
-  displayName: z.string(),
-  photoURL: z.string().optional(),
-  coins: z.number(),
-  xp: z.number(),
-  totalClicks: z.number(),
-  clickPower: z.number(),
-  activeBoosts: z.array(
-    z.object({
-      id: z.string(),
-      multiplier: z.number(),
-      expiresAt: z.number(),
-      auto: z.boolean().optional(),
-    })
-  ),
-  achievements: z.array(z.string()),
-  disabled: z.boolean().optional(),
-  createdAt: z.any().optional(),
+  pseudo: z.string(),
+  monnaie: z.number(),
+  niveau: z.number(),
+  gainParClic: z.number(),
+  upgradeCost: z.number().optional(),
+  totalClics: z.number(),
+  palierActuel: z.number(),
+  autoClickPerSec: z.number().optional(),
+  photoURL: z.string().url().optional(),
 });
 
-export type UserProfile = z.infer<typeof userProfileSchema>;
+export const playerCardSchema = z.object({
+  id: z.string(),
+  nom: z.string(),
+  position: z.enum(['ATT', 'MDC', 'DC', 'GB']),
+  ligue: z.enum(['Ligue 1', 'Premier League', 'Liga', 'Serie A']),
+  nationalite: z.string(),
+  note: z.number(),
+  rarete: z.enum(['UNCOMMON', 'RARE', 'SUPER_RARE', 'UNIQUE']),
+  image: z.string(),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type SignupInput = z.infer<typeof signupSchema>;

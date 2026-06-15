@@ -1,21 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function cardNote(data) {
+      return data.keys().hasAny(['note', 'ovr'])
+        ? (data.note is number ? data.note : (data.ovr is number ? data.ovr : 0))
+        : 0;
+    }
+
+    function isCatalogMarker(cardId) {
+      return cardId == 'dtm_catalog_synced';
+    }
+
+    match /cards/{cardId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+      allow delete: if request.auth != null
+        && !isCatalogMarker(cardId)
+        && (cardNote(resource.data) < 75 || cardNote(resource.data) > 91);
+
+      match /owners/{ownershipId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.cardId == cardId;
+        allow update: if false;
+        allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      }
+    }
+
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      match /collection/{cardId} {
+      match /collection/{ownershipId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
       match /composition/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
-    }
-    match /dreamTeams/{teamId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      match /matchHistory/{matchId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

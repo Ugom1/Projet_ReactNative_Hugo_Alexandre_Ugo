@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A0A' }}>
       <Text style={{ color: 'white' }}>Ecran introuvable</Text>
-      <Link href="/" style={{ color: '#FFD700' }}>Retour</Link>
+      <Link href="/(tabs)" style={{ color: '#FFD700' }}>Retour à l'accueil</Link>
     </View>
   );
 }

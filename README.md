@@ -1,142 +1,117 @@
-# DreamTeam Maker ⚽
+# DTM — Dream Team Maker
 
-Application mobile **React Native (Expo)** — clicker football, gestion de DreamTeam (CRUD), joueurs via API-Football, backend **Firebase**.
+Application mobile React Native / Expo — collecte de cartes, clicker, composition d'équipe et packs.
 
-Projet Firebase : `dreamteammaker-2298e`
+## Stack
 
-## Prérequis
+- Expo SDK 56 + expo-router
+- Firebase Auth + Firestore
+- TanStack Query + Zod
+- TypeScript
 
-- Node.js 18+
-- Compte [Expo](https://expo.dev) (optionnel)
-- **Expo Go** sur téléphone (recommandé pour tester)
-- Projet Firebase configuré (voir ci-dessous)
+## Configuration Firebase (dreamteammaker-a6bf0)
 
-## Démarrage
+Console : [dreamteammaker-a6bf0](https://console.firebase.google.com/project/dreamteammaker-a6bf0/overview)
+
+1. **Authentication** → Sign-in method → activer **Email/Password**
+2. **Firestore** → Create database (mode test, région europe-west)
+3. **Paramètres projet** (⚙️) → **Vos applications** → ajouter une app **Web** `</>`
+4. Copier les clés dans `.env` :
 
 ```bash
-cd dream-team-maker
-npm install
+cp .env.example .env
+# Remplir EXPO_PUBLIC_FIREBASE_API_KEY, MESSAGING_SENDER_ID, APP_ID
+```
+
+5. Déployer les règles :
+
+```bash
+npx firebase login
+npx firebase deploy --only firestore:rules --project dreamteammaker-a6bf0
+```
+
+6. Tester la connexion :
+
+```bash
+node scripts/test-firebase.mjs test@dtm.app Test123456
+npx expo start -c
+```
+
+## Joueurs EA FC 26 (API msmc.cc)
+
+Les cartes proviennent de l'API [EA FC 26](https://api.msmc.cc/fc26/) — **aucune clé requise**.
+
+```bash
+npm run sync:players
+```
+
+Cela régénère `data/fc26.players.generated.ts` (joueurs par nation, photos EA, **note fixe** = OVR EA).
+
+## Probabilités des packs
+
+Chaque joueur a une **note permanente**. À l'ouverture d'un pack :
+1. Tirage d'une **tranche de note** (selon le pack)
+2. Tirage **uniforme** d'un joueur dans cette tranche
+
+```bash
+npm run pack:stats
+```
+
+Affiche le tableau des probabilités, l'effectif par tranche et une simulation Monte Carlo.
+
+## Lancer l'app
+
+```bash
 npx expo start
 ```
 
-| Commande | Usage |
-|----------|--------|
-| `npm start` | Serveur Expo + QR code |
-| `npm run web` | Ouvrir dans le navigateur |
-| `npm run android` | Émulateur / appareil Android |
-| `npm run ios` | Simulateur iOS (macOS uniquement) |
+Scanner le QR code avec **Expo Go**.
 
-Scanne le QR code avec **Expo Go**, ou appuie sur `w` (web) / `a` (Android) dans le terminal.
+## Build EAS (APK Android)
 
-## Navigation
-
-| Zone | Écrans |
-|------|--------|
-| **Auth** | Connexion, inscription, mot de passe oublié |
-| **Clicker** | Tap ballon → coins, boutique de boosts |
-| **DreamTeam** | Liste, création (formation + ligue), feuille de match, marché joueurs |
-| **Ligue** | Simulation mini-saison (8 matchs) |
-| **Profil** | Photo, pseudo, mot de passe, succès, compte |
-
-## Exigences cours (couvertes)
-
-| Exigence | Implémentation |
-|----------|----------------|
-| Expo + TypeScript | Expo SDK 56, template Expo Router |
-| Expo Router | `app/(auth)`, `app/(tabs)`, `app/team` |
-| 2 collections Firestore | `users`, `dreamTeams` |
-| CRUD (2 entités) | DreamTeam (C/R/U/D) + profil utilisateur (R/U/D) |
-| TanStack Query | Cache API-Football (`app/team/player-market.tsx`) |
-| Zod | `lib/schemas.ts` |
-| API externe | API-Football — Premier League & La Liga |
-| Firebase Auth | Email/mot de passe, reset, œil sur le champ password |
-
-## Configuration Firebase
-
-Dans [Firebase Console](https://console.firebase.google.com/) → projet **dreamteammaker-2298e** :
-
-1. **Authentication** → activer **Email/Password**
-2. **Firestore Database** → créer la base
-3. **Règles** → copier le fichier [`firestore.rules`](./firestore.rules) → **Publier**
-4. **Storage** → activer (avatars sur mobile)
-
-Règles Storage (exemple) :
-
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /avatars/{userId}.jpg {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+```bash
+npx expo-doctor
+eas build --profile preview --platform android
 ```
 
-La config SDK est dans `lib/firebase.ts` (déjà renseignée pour ce projet).
+## Fonctionnalités
 
-## API Football
-
-- Clé : `lib/constants.ts` (`API_FOOTBALL_KEY`)
-- Ligues : Premier League (39), La Liga (140)
-- Cache local 24 h (AsyncStorage) — plan gratuit ~**100 requêtes/jour**
-- Sur le marché joueurs : bouton **« Précharger 4 clubs »** avant d’explorer les effectifs
+| Écran | Description |
+|-------|-------------|
+| Auth | Login, inscription, mot de passe oublié, Google |
+| Accueil | Clicker + upgrade |
+| Jouer | Paliers 75→95 + composition + résultat match |
+| Marché | 4 packs + ouverture animée |
+| Ma Galerie | Collection avec filtres + vente (DELETE) |
 
 ## Collections Firestore
 
-| Collection | Contenu |
-|------------|---------|
-| `users` | coins, xp, clics, boosts, achievements, profil, `photoURL` |
-| `dreamTeams` | nom, formation, ligue, tableau `players` (slots) |
+À la **racine** de la BDD (même niveau que `users`) :
 
-## Web vs mobile
+- `cards/{cardId}` — fiche joueur (nom, note, photo, poste…)
+- `cards/{cardId}/owners/{ownershipId}` — qui possède la carte (`uid`, rareté, date)
+- `users/{uid}` — profil, monnaie, palier
+- `users/{uid}/composition/current` — brouillon
+- `users/{uid}/matchHistory/{matchId}` — historique
 
-| Plateforme | Recommandation |
-|------------|----------------|
-| **Expo Go (téléphone)** | ✅ Comportement complet (Firestore + Storage) |
-| **Navigateur (`localhost:8081`)** | Dev uniquement — limitations ci-dessous |
+Quand un compte ouvre un pack, un document est créé dans `cards/{cardId}/owners/`. Plusieurs comptes peuvent posséder la même carte (plusieurs docs `owners` sur le même `cardId`).
 
-### Navigateur — points d’attention
+### Créer la collection `cards` (obligatoire une fois)
 
-1. **Bloqueur de pub** (uBlock, AdBlock…)  
-   Bloque `firestore.googleapis.com` → coins / équipe ne se sauvent pas.  
-   → Désactive le bloqueur pour `localhost:8081` **ou** utilise Expo Go.
+1. **Publier les règles** Firestore (console → Règles → coller `firestore.rules` → Publier)
+2. Lancer depuis le terminal :
 
-2. **Photo de profil**  
-   Sur le web, la photo est stockée dans **Firestore** (data URL), pas Storage (évite CORS).  
-   Sur mobile : **Firebase Storage** (`avatars/{uid}.jpg`).
-
-3. **Storage CORS (optionnel, pour le web)**  
-   Fichier [`storage.cors.json`](./storage.cors.json), avec [Google Cloud SDK](https://cloud.google.com/sdk) :
-
-   ```bash
-   gsutil cors set storage.cors.json gs://dreamteammaker-2298e.firebasestorage.app
-   ```
-
-## Structure du projet
-
-```
-app/
-  (auth)/          login, signup, forgot-password
-  (tabs)/          clicker, team, league, profile
-  team/            create, [id]/sheet, [id]/edit, player-market
-lib/               firebase, schemas, api-football, simulator
-services/          userService, teamService
-providers/         AuthProvider, QueryProvider
-components/        PasswordInput, PitchView, FormError, …
+```bash
+npm run sync:cards ton@email.com tonMotDePasse
 ```
 
-## Dépannage rapide
+Rafraîchir la console Firebase : la collection `cards` (~4200 documents) apparaît.
 
-| Problème | Solution |
-|----------|----------|
-| Inscription 400 / rien ne se passe | Activer Email/Password dans Firebase Auth ; lire le bandeau rouge sur l’écran |
-| Coins = `NaN` | Reconnecte-toi (réparation auto du profil) |
-| Coins ne montent pas (web) | Désactiver AdBlock pour localhost |
-| Joueur sans déduction de coins | Vérifier Firestore non bloqué ; message d’erreur sur le marché |
-| Photo de profil (web) | Utiliser une image légère ; ou tester sur Expo Go |
+## Critères cours Hexagone
 
-## Arrêter le serveur
-
-`Ctrl+C` dans le terminal où tourne `npx expo start`.
+- CRUD sur 2+ entités liées ✓
+- TanStack Query (loading/error/data) ✓
+- Zod validation ✓
+- SafeAreaView + KeyboardAvoidingView ✓
+- EAS Build ready ✓
+- Auth Firebase + onSnapshot realtime ✓
